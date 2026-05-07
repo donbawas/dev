@@ -1,6 +1,6 @@
 export default function SavedPage() {
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-lg font-semibold text-foreground">Saved</h1>
         <p className="text-sm text-muted-foreground">Your bookmarked items</p>

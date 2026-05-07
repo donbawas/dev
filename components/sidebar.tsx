@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Rss, Bookmark, Bell, Zap } from 'lucide-react';
+import { Rss, Bookmark, Bell, Zap, Compass } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/feed', label: 'Feed', icon: Rss },
-  { href: '/saved', label: 'Saved', icon: Bookmark },
-  { href: '/subscriptions', label: 'Subscriptions', icon: Bell },
+  { href: '/feed',          label: 'Feed',          icon: Rss     },
+  { href: '/discover',      label: 'Discover',      icon: Compass },
+  { href: '/saved',         label: 'Saved',         icon: Bookmark },
+  { href: '/subscriptions', label: 'Subscriptions', icon: Bell    },
 ];
 
 export function Sidebar() {
