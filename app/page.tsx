@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, ExternalLink } from 'lucide-react';
+import { ArrowRight, ExternalLink, TrendingUp } from 'lucide-react';
 import { SignUpButton, Show } from '@clerk/nextjs';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
@@ -43,24 +43,41 @@ function getGithubOrg(sourceType: SourceType, sourceIdentifier: string): string 
   return org ?? null;
 }
 
-export default async function HomePage() {
-  const updates = (await sql`
-    SELECT
-      u.id, u.title, u.url, u.description, u.update_type, u.published_at,
-      t.name             AS topic_name,
-      t.verified         AS topic_verified,
-      t.source_type,
-      t.source_identifier,
-      c.name             AS category_name
-    FROM updates u
-    JOIN topics t ON t.id = u.topic_id
-    JOIN categories c ON c.id = t.category_id
-    WHERE t.verified = true
-    ORDER BY COALESCE(u.published_at, u.created_at) DESC
-    LIMIT 13
-  `) as PublicUpdate[];
+interface TrendingTopic {
+  id: number; name: string; slug: string; category_name: string;
+  subscriber_count: number; update_count: number;
+}
 
-  const [hero, ...rest] = updates;
+export default async function HomePage() {
+  const [updates, trending] = await Promise.all([
+    sql`
+      SELECT
+        u.id, u.title, u.url, u.description, u.update_type, u.published_at,
+        t.name AS topic_name, t.verified AS topic_verified,
+        t.source_type, t.source_identifier, c.name AS category_name
+      FROM updates u
+      JOIN topics t ON t.id = u.topic_id
+      JOIN categories c ON c.id = t.category_id
+      WHERE t.verified = true
+      ORDER BY COALESCE(u.published_at, u.created_at) DESC
+      LIMIT 13
+    `,
+    sql`
+      SELECT t.id, t.name, t.slug, c.name AS category_name,
+        COUNT(DISTINCT us.user_id)::int  AS subscriber_count,
+        COUNT(DISTINCT u.id)::int        AS update_count
+      FROM topics t
+      JOIN categories c ON c.id = t.category_id
+      LEFT JOIN user_subscriptions us ON us.topic_id = t.id
+      LEFT JOIN updates u ON u.topic_id = t.id
+      WHERE t.verified = true
+      GROUP BY t.id, t.name, t.slug, c.name
+      ORDER BY subscriber_count DESC, update_count DESC
+      LIMIT 10
+    `,
+  ]);
+
+  const [hero, ...rest] = updates as PublicUpdate[];
   const featured = rest.slice(0, 3);
   const grid = rest.slice(3);
 
@@ -154,6 +171,35 @@ export default async function HomePage() {
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {grid.map((u) => <GridCard key={u.id} update={u} />)}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Trending topics ── */}
+        {(trending as TrendingTopic[]).length > 0 && (
+          <section className="border-t border-border px-6 py-8">
+            <div className="mx-auto max-w-6xl">
+              <div className="mb-4 flex items-center gap-2">
+                <TrendingUp className="size-4 text-primary" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Trending topics
+                </h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(trending as TrendingTopic[]).map((t) => (
+                  <Link key={t.id} href="/discover">
+                    <span className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted">
+                      {t.name}
+                      <span className="text-[10px] text-muted-foreground">{t.category_name}</span>
+                      {t.subscriber_count > 0 && (
+                        <span className="rounded-full bg-primary/10 px-1.5 text-[9px] font-semibold text-primary">
+                          {t.subscriber_count} following
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                ))}
               </div>
             </div>
           </section>

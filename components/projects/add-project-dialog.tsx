@@ -83,7 +83,17 @@ export function AddProjectDialog({ open, onClose, onCreated }: Props) {
             <GitBranch className="size-8 text-muted-foreground" />
             <p className="text-sm font-medium text-foreground">GitHub not connected</p>
             <p className="text-xs text-muted-foreground">
-              Connect your GitHub account in profile settings to import your repositories.
+              Connect your GitHub account so DevPulse can read your repositories.
+            </p>
+            <a
+              href="/user-profile"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button size="sm" variant="outline">Connect GitHub in profile</Button>
+            </a>
+            <p className="text-[11px] text-muted-foreground">
+              Already connected? You may need to reconnect to grant repo access.
             </p>
           </div>
         ) : (

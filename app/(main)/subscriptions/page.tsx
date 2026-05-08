@@ -10,27 +10,29 @@ export default async function SubscriptionsPage() {
   if (!clerkId) return null;
 
   const [user] = await sql`SELECT id FROM users WHERE clerk_id = ${clerkId}`;
+  if (!user) return (
+    <div className="flex flex-col gap-6">
+      <Header count={0} />
+      <SubscribedList initialTopics={[]} />
+    </div>
+  );
 
-  if (!user) {
-    return (
-      <div className="flex flex-col gap-6">
-        <Header count={0} />
-        <SubscribedList initialTopics={[]} />
-      </div>
-    );
-  }
-
+  // "new" = updates in the last 7 days the user hasn't seen (approximated by last_feed_visit)
   const topics = (await sql`
     SELECT
       t.id, t.name, t.slug, t.verified, t.source_type, t.source_identifier,
       c.name AS category_name,
-      MAX(COALESCE(u.published_at, u.created_at)) AS last_update_at
+      MAX(COALESCE(u.published_at, u.created_at)) AS last_update_at,
+      COUNT(u.id) FILTER (
+        WHERE COALESCE(u.published_at, u.created_at) > COALESCE(usr.last_feed_visit, NOW() - INTERVAL '7 days')
+      )::int AS new_count
     FROM user_subscriptions us
     JOIN topics t ON t.id = us.topic_id
     JOIN categories c ON c.id = t.category_id
     LEFT JOIN updates u ON u.topic_id = t.id
+    JOIN users usr ON usr.id = us.user_id
     WHERE us.user_id = ${user.id}
-    GROUP BY t.id, t.name, t.slug, t.verified, t.source_type, t.source_identifier, c.name
+    GROUP BY t.id, t.name, t.slug, t.verified, t.source_type, t.source_identifier, c.name, usr.last_feed_visit
     ORDER BY c.name, t.name
   `) as SubscribedTopic[];
 
@@ -48,9 +50,7 @@ function Header({ count }: { count: number }) {
       <div>
         <h1 className="text-lg font-semibold text-foreground">Subscriptions</h1>
         <p className="text-sm text-muted-foreground">
-          {count === 0
-            ? 'Not following any topics yet'
-            : `Following ${count} topic${count === 1 ? '' : 's'}`}
+          {count === 0 ? 'Not following any topics yet' : `Following ${count} topic${count === 1 ? '' : 's'}`}
         </p>
       </div>
       <Button asChild variant="outline" size="sm">

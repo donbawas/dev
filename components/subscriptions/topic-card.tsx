@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2 } from 'lucide-react';
+import { formatDistanceToNow } from '@/lib/date';
 import { SOURCE_TYPE_LABELS } from '@/lib/types';
 import type { Topic } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -18,12 +19,13 @@ const SOURCE_TYPE_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  topic: Topic;
+  topic: Topic & { last_update_at?: string | null };
   subscribed: boolean;
   onToggle: (topicId: number, subscribed: boolean) => Promise<void>;
 }
 
 export function TopicCard({ topic, subscribed, onToggle }: Props) {
+  const lastUpdated = topic.last_update_at ? formatDistanceToNow(new Date(topic.last_update_at)) : null;
   const [loading, setLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(subscribed);
 
@@ -68,6 +70,9 @@ export function TopicCard({ topic, subscribed, onToggle }: Props) {
         </span>
         <span className="truncate text-[11px] text-muted-foreground">{topic.source_identifier}</span>
       </div>
+      {lastUpdated && (
+        <p className="text-[10px] text-muted-foreground/60">Updated {lastUpdated}</p>
+      )}
 
       <Button
         size="sm"

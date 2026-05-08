@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, ExternalLink, Loader2, ShieldAlert, ArrowUpCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ExternalLink, Loader2, ShieldAlert, AlertTriangle, CheckCircle2, ArrowUpCircle, Sparkles, BookOpen, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DonutChart } from '@/components/ui/donut-chart';
+import { HealthBadge } from '@/components/projects/health-badge';
 import { formatDistanceToNow } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +25,11 @@ interface Dependency {
   is_deprecated: boolean;
   vuln_count: number;
   vuln_severity: string | null;
+  cve_ids: string[];
   days_behind: number;
+  license: string | null;
+  weekly_downloads: number | null;
+  changelog_url: string | null;
 }
 
 interface Project {
@@ -53,27 +61,31 @@ function getSlaClass(days: number) {
   return entry ?? SLA_CONFIG[SLA_CONFIG.length - 1];
 }
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default function ProjectDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [deps, setDeps] = useState<Dependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<'name' | 'status' | 'days_behind'>('status');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const fetchData = useCallback(async () => {
     const [proj, depsData] = await Promise.all([
-      fetch(`/api/projects/${params.id}`).then((r) => r.json()),
-      fetch(`/api/projects/${params.id}/dependencies`).then((r) => r.json()),
+      fetch(`/api/projects/${id}`).then((r) => r.json()),
+      fetch(`/api/projects/${id}/dependencies`).then((r) => r.json()),
     ]);
     setProject(proj);
     setDeps(Array.isArray(depsData) ? depsData : []);
     setLoading(false);
-  }, [params.id]);
+  }, [id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   async function rescan() {
     setScanning(true);
-    await fetch(`/api/projects/${params.id}/scan`, { method: 'POST' });
+    await fetch(`/api/projects/${id}/scan`, { method: 'POST' });
     await fetchData();
     setScanning(false);
   }
@@ -86,7 +98,31 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const vulnerable  = deps.filter((d) => d.status === 'vulnerable');
   const outdated    = deps.filter((d) => ['major', 'minor', 'patch'].includes(d.status));
   const deprecated  = deps.filter((d) => d.is_deprecated);
-  const upToDate    = deps.filter((d) => d.status === 'up_to_date');
+
+  function sortAndFilter(list: Dependency[]) {
+    const filtered = search ? list.filter((d) => d.name.toLowerCase().includes(search.toLowerCase())) : list;
+    return [...filtered].sort((a, b) => {
+      const STATUS_ORDER: Record<string, number> = { vulnerable: 0, deprecated: 1, major: 2, minor: 3, patch: 4, up_to_date: 5 };
+      let cmp = 0;
+      if (sortKey === 'name') cmp = a.name.localeCompare(b.name);
+      else if (sortKey === 'status') cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
+      else if (sortKey === 'days_behind') cmp = a.days_behind - b.days_behind;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
+  }
+
+  const donutSlices = [
+    { value: deps.filter((d) => d.status === 'up_to_date').length, color: '#22c55e', label: 'Up to date' },
+    { value: deps.filter((d) => d.status === 'patch').length,      color: '#3b82f6', label: 'Patch' },
+    { value: deps.filter((d) => d.status === 'minor').length,      color: '#f59e0b', label: 'Minor' },
+    { value: deps.filter((d) => d.status === 'major').length,      color: '#f97316', label: 'Major' },
+    { value: vulnerable.length,                                     color: '#ef4444', label: 'Vulnerable' },
+  ].filter((s) => s.value > 0);
 
   return (
     <TooltipProvider>
@@ -120,19 +156,47 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             </Button>
           </div>
 
-          {/* Summary stats */}
-          <div className="grid grid-cols-4 gap-3">
-            {[
-              { label: 'Total',      value: deps.length,       className: 'text-foreground' },
-              { label: 'Vulnerable', value: vulnerable.length,  className: vulnerable.length  > 0 ? 'text-destructive' : 'text-foreground' },
-              { label: 'Outdated',   value: outdated.length,    className: outdated.length   > 0 ? 'text-amber-500'   : 'text-foreground' },
-              { label: 'Deprecated', value: deprecated.length,  className: deprecated.length > 0 ? 'text-muted-foreground' : 'text-foreground' },
-            ].map((s) => (
-              <div key={s.label} className="flex flex-col items-center rounded-xl border border-border bg-card py-3">
-                <span className={cn('text-2xl font-bold', s.className)}>{s.value}</span>
-                <span className="text-[10px] text-muted-foreground">{s.label}</span>
+          {/* Summary stats + donut + health */}
+          <div className="flex gap-3">
+            <div className="grid flex-1 grid-cols-4 gap-3">
+              {[
+                { label: 'Total',      value: deps.length,       color: 'text-foreground' },
+                { label: 'Vulnerable', value: vulnerable.length,  color: vulnerable.length  > 0 ? 'text-destructive' : 'text-foreground' },
+                { label: 'Outdated',   value: outdated.length,    color: outdated.length   > 0 ? 'text-amber-500'   : 'text-foreground' },
+                { label: 'Deprecated', value: deprecated.length,  color: deprecated.length > 0 ? 'text-orange-500' : 'text-foreground' },
+              ].map((s) => (
+                <div key={s.label} className="flex flex-col items-center rounded-xl border border-border bg-card py-3">
+                  <span className={cn('text-2xl font-bold', s.color)}>{s.value}</span>
+                  <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                </div>
+              ))}
+            </div>
+            {donutSlices.length > 0 && (
+              <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-3">
+                <DonutChart
+                  slices={donutSlices}
+                  size={72}
+                  thickness={10}
+                  centerLabel={<span className="text-[10px] font-semibold text-muted-foreground">{deps.length}</span>}
+                />
+                <div className="flex flex-col gap-1">
+                  {donutSlices.map((s) => (
+                    <div key={s.label} className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-full" style={{ background: s.color }} />
+                      <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                      <span className="text-[10px] font-medium text-foreground">{s.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
+            <HealthBadge
+              size="lg"
+              depCount={deps.length}
+              vulnCount={vulnerable.length}
+              outdatedCount={outdated.length}
+              deprecatedCount={deprecated.length}
+            />
           </div>
         </div>
 
@@ -144,12 +208,23 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           </div>
         ) : (
           <Tabs defaultValue="all">
-            <TabsList>
-              <TabsTrigger value="all">All <Badge count={deps.length} /></TabsTrigger>
-              <TabsTrigger value="vulnerable">Vulnerable <Badge count={vulnerable.length} danger /></TabsTrigger>
-              <TabsTrigger value="outdated">Outdated <Badge count={outdated.length} warn /></TabsTrigger>
-              <TabsTrigger value="deprecated">Deprecated <Badge count={deprecated.length} /></TabsTrigger>
-            </TabsList>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <TabsList>
+                <TabsTrigger value="all">All <Badge count={sortAndFilter(deps).length} /></TabsTrigger>
+                <TabsTrigger value="vulnerable">Vulnerable <Badge count={vulnerable.length} danger /></TabsTrigger>
+                <TabsTrigger value="outdated">Outdated <Badge count={outdated.length} warn /></TabsTrigger>
+                <TabsTrigger value="deprecated">Deprecated <Badge count={deprecated.length} /></TabsTrigger>
+              </TabsList>
+              <div className="relative w-full sm:w-56">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search packages…"
+                  className="h-8 pl-8 text-xs"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
 
             {[
               { value: 'all',        rows: deps },
@@ -158,7 +233,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               { value: 'deprecated', rows: deprecated },
             ].map(({ value, rows }) => (
               <TabsContent key={value} value={value} className="mt-4">
-                <DependencyTable deps={rows} />
+                <DependencyTable deps={sortAndFilter(rows)} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               </TabsContent>
             ))}
           </Tabs>
@@ -180,71 +255,163 @@ function Badge({ count, warn, danger }: { count: number; warn?: boolean; danger?
   );
 }
 
-function DependencyTable({ deps }: { deps: Dependency[] }) {
+function formatDownloads(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M/wk`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k/wk`;
+  return `${n}/wk`;
+}
+
+function SortHeader({ label, sortKey: key, currentKey, dir, onSort }: {
+  label: React.ReactNode; sortKey: string; currentKey: string; dir: 'asc' | 'desc'; onSort: (k: 'name' | 'status' | 'days_behind') => void;
+}) {
+  const active = currentKey === key;
+  return (
+    <button onClick={() => onSort(key as 'name' | 'status' | 'days_behind')}
+      className={cn('flex items-center gap-1 hover:text-foreground transition-colors', active ? 'text-foreground font-semibold' : 'text-muted-foreground')}>
+      {label}
+      {active && <span className="text-[10px]">{dir === 'asc' ? '↑' : '↓'}</span>}
+    </button>
+  );
+}
+
+function DependencyTable({ deps, sortKey, sortDir, onSort }: {
+  deps: Dependency[];
+  sortKey: string;
+  sortDir: 'asc' | 'desc';
+  onSort: (k: 'name' | 'status' | 'days_behind') => void;
+}) {
   if (deps.length === 0) {
     return <p className="py-8 text-center text-sm text-muted-foreground">Nothing here.</p>;
   }
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden">
+    <div className="rounded-xl border border-border overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Package</TableHead>
+            <TableHead><SortHeader label="Package" sortKey="name" currentKey={sortKey} dir={sortDir} onSort={onSort} /></TableHead>
             <TableHead>Current</TableHead>
             <TableHead>Latest</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>SLA</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead><SortHeader label="Status" sortKey="status" currentKey={sortKey} dir={sortDir} onSort={onSort} /></TableHead>
+            <TableHead><SortHeader label="SLA" sortKey="days_behind" currentKey={sortKey} dir={sortDir} onSort={onSort} /></TableHead>
+            <TableHead>License</TableHead>
+            <TableHead>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 cursor-default">
+                    <Sparkles className="size-3 text-primary" />
+                    Summary
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>AI-powered migration summaries — coming soon</TooltipContent>
+              </Tooltip>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {deps.map((dep) => {
             const cfg = STATUS_CONFIG[dep.status] ?? STATUS_CONFIG.up_to_date;
             const sla = dep.days_behind > 0 ? getSlaClass(dep.days_behind) : null;
+            const cveIds: string[] = Array.isArray(dep.cve_ids) ? dep.cve_ids : [];
 
             return (
               <TableRow key={dep.id}>
+                {/* Package */}
                 <TableCell className="font-mono text-sm font-medium">
-                  <a
-                    href={`https://www.npmjs.com/package/${dep.name}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    {dep.name}
-                  </a>
+                  <div className="flex items-center gap-2">
+                    {dep.changelog_url ? (
+                      <a href={dep.changelog_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                        {dep.name}
+                      </a>
+                    ) : (
+                      <span>{dep.name}</span>
+                    )}
+                    {dep.changelog_url && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <a href={dep.changelog_url} target="_blank" rel="noopener noreferrer">
+                            <BookOpen className="size-3 text-muted-foreground hover:text-foreground" />
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent>View changelog</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {dep.weekly_downloads != null && (
+                      <span className="text-[10px] text-muted-foreground/60 hidden xl:inline">
+                        {formatDownloads(dep.weekly_downloads)}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
+
+                {/* Current */}
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {dep.current_version ?? '—'}
                 </TableCell>
+
+                {/* Latest */}
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {dep.latest_version ?? '—'}
                 </TableCell>
+
+                {/* Status */}
                 <TableCell>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <span className={cn('flex items-center gap-1 text-xs font-medium', cfg.className)}>
-                        {cfg.icon} {cfg.label}
-                        {dep.vuln_count > 0 && (
-                          <span className="ml-1 rounded bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive">
-                            {dep.vuln_count} {dep.vuln_severity}
-                          </span>
+                  <div className="flex flex-col gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className={cn('flex items-center gap-1 text-xs font-medium w-fit', cfg.className)}>
+                          {cfg.icon} {cfg.label}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{cfg.label}</TooltipContent>
+                    </Tooltip>
+                    {dep.vuln_count > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        <span className="rounded bg-destructive/10 px-1 py-0.5 text-[10px] font-medium text-destructive">
+                          {dep.vuln_severity}
+                        </span>
+                        {cveIds.slice(0, 2).map((cve) => (
+                          <a
+                            key={cve}
+                            href={`https://nvd.nist.gov/vuln/detail/${cve}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded bg-destructive/5 px-1 py-0.5 text-[10px] text-destructive hover:underline"
+                          >
+                            {cve}
+                          </a>
+                        ))}
+                        {cveIds.length > 2 && (
+                          <span className="text-[10px] text-muted-foreground">+{cveIds.length - 2}</span>
                         )}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {dep.vuln_count > 0
-                        ? `${dep.vuln_count} known vulnerability${dep.vuln_count > 1 ? 'ies' : 'y'} (${dep.vuln_severity})`
-                        : cfg.label}
-                    </TooltipContent>
-                  </Tooltip>
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
+
+                {/* SLA */}
                 <TableCell className={cn('text-xs', sla?.className ?? 'text-muted-foreground')}>
                   {dep.days_behind > 0 ? `${dep.days_behind}d` : '—'}
                 </TableCell>
-                <TableCell className="text-[11px] text-muted-foreground capitalize">
-                  {dep.dep_type}
+
+                {/* License */}
+                <TableCell className="text-[11px] text-muted-foreground">
+                  {dep.license ?? '—'}
+                </TableCell>
+
+                {/* AI Summary — coming soon */}
+                <TableCell>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex cursor-default items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary/60">
+                        <Sparkles className="size-2.5" />
+                        AI Summary
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      AI-powered migration guide coming soon — will summarize breaking changes and suggest code fixes
+                    </TooltipContent>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             );

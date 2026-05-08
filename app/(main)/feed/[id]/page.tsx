@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ExternalLink, CheckCircle2, Calendar, Tag } from 'lucide-react';
@@ -11,6 +12,7 @@ import {
 import type { SourceType, UpdateType } from '@/lib/types';
 import { formatDistanceToNow } from '@/lib/date';
 import { cn } from '@/lib/utils';
+import { SaveButton } from '@/components/feed/save-button';
 
 interface UpdateDetail {
   id: number;
@@ -37,6 +39,7 @@ interface RelatedUpdate {
 
 export default async function UpdateDetailPage(props: PageProps<'/feed/[id]'>) {
   const { id } = await props.params;
+  const { userId: clerkId } = await auth();
 
   const [update] = (await sql`
     SELECT
@@ -54,6 +57,15 @@ export default async function UpdateDetailPage(props: PageProps<'/feed/[id]'>) {
   `) as UpdateDetail[];
 
   if (!update) notFound();
+
+  let isSaved = false;
+  if (clerkId) {
+    const [user] = await sql`SELECT id FROM users WHERE clerk_id = ${clerkId}`;
+    if (user) {
+      const [saved] = await sql`SELECT 1 FROM saved_updates WHERE user_id = ${user.id} AND update_id = ${update.id}`;
+      isSaved = !!saved;
+    }
+  }
 
   const related = (await sql`
     SELECT id, title, update_type, published_at
@@ -123,14 +135,17 @@ export default async function UpdateDetailPage(props: PageProps<'/feed/[id]'>) {
           <p className="text-sm text-muted-foreground italic">No summary available.</p>
         )}
 
-        {/* Source link */}
-        {update.url && (
-          <a href={update.url} target="_blank" rel="noopener noreferrer">
-            <Button className="gap-2">
-              View source <ExternalLink className="size-4" />
-            </Button>
-          </a>
-        )}
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          {update.url && (
+            <a href={update.url} target="_blank" rel="noopener noreferrer">
+              <Button className="gap-2">
+                View source <ExternalLink className="size-4" />
+              </Button>
+            </a>
+          )}
+          {clerkId && <SaveButton updateId={update.id} initialSaved={isSaved} />}
+        </div>
       </article>
 
       {/* Related */}

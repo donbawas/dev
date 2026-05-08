@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, GitBranch, AlertTriangle, ArrowUpCircle, ShieldAlert, Loader2 } from 'lucide-react';
+import { Plus, GitBranch, ShieldAlert, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PricingModal } from '@/components/pricing-modal';
 import { AddProjectDialog } from '@/components/projects/add-project-dialog';
+import { HealthBadge } from '@/components/projects/health-badge';
 import { formatDistanceToNow } from '@/lib/date';
 
 interface Project {
@@ -120,13 +121,18 @@ function ProjectCard({ project }: { project: Project }) {
           <p className="truncate text-sm font-semibold text-foreground">{project.name}</p>
           <p className="truncate text-[11px] text-muted-foreground">{project.github_repo}</p>
         </div>
-        {hasIssues && <AlertTriangle className="size-4 shrink-0 text-amber-500" />}
+        <HealthBadge
+          depCount={project.dep_count}
+          vulnCount={project.vuln_count}
+          outdatedCount={project.outdated_count}
+          deprecatedCount={project.deprecated_count}
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="Total" value={project.dep_count} />
-        <Stat label="Outdated" value={project.outdated_count} warn={project.outdated_count > 0} />
-        <Stat label="Vulnerable" value={project.vuln_count} danger={project.vuln_count > 0} />
+        <Stat label="Total"      value={project.dep_count}      />
+        <Stat label="Outdated"   value={project.outdated_count}  warn={project.outdated_count > 0} />
+        <Stat label="Vulnerable" value={project.vuln_count}      danger={project.vuln_count > 0} />
       </div>
 
       <p className="text-[11px] text-muted-foreground">

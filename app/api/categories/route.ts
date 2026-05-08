@@ -13,7 +13,8 @@ export async function GET() {
           'slug', t.slug, 'description', t.description,
           'source_type', t.source_type, 'source_identifier', t.source_identifier,
           'verified', t.verified, 'last_fetched_at', t.last_fetched_at,
-          'created_at', t.created_at
+          'created_at', t.created_at,
+          'last_update_at', (SELECT MAX(COALESCE(u.published_at, u.created_at)) FROM updates u WHERE u.topic_id = t.id)
         ) ORDER BY t.name
       ) FILTER (WHERE t.id IS NOT NULL) AS topics
     FROM categories c

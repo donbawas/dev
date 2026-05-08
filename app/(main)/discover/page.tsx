@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GitBranch } from 'lucide-react';
 import { GithubTab } from '@/components/discover/github-tab';
 import { BrowseTab } from '@/components/discover/browse-tab';
+import { HuggingfaceTab } from '@/components/discover/huggingface-tab';
 import type { CategoryWithTopics, Category, Topic } from '@/lib/types';
 
 export default function DiscoverPage() {
@@ -48,11 +49,16 @@ export default function DiscoverPage() {
           <TabsTrigger value="github" className="gap-1.5">
             <GitBranch className="size-3.5" /> GitHub
           </TabsTrigger>
+          <TabsTrigger value="huggingface">Hugging Face</TabsTrigger>
           <TabsTrigger value="browse">Browse topics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="github" className="mt-4">
           <GithubTab categories={flatCategories} onTopicCreated={handleTopicCreated} />
+        </TabsContent>
+
+        <TabsContent value="huggingface" className="mt-4">
+          <HuggingfaceTab categories={flatCategories} onTopicCreated={handleTopicCreated} />
         </TabsContent>
 
         <TabsContent value="browse" className="mt-4">
