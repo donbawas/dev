@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { HFModelCard } from './hf-model-card';
 import { CreateTopicDialog } from '@/components/subscriptions/create-topic-dialog';
+import { RequestTopicDialog } from '@/components/admin/request-topic-dialog';
 import type { HFModel } from '@/app/api/huggingface/search/route';
 import type { Category, Topic } from '@/lib/types';
 
@@ -26,9 +27,10 @@ function modelDisplayName(id: string): string {
 interface Props {
   categories: Category[];
   onTopicCreated: (topic: Topic) => void;
+  isAdmin?: boolean;
 }
 
-export function HuggingfaceTab({ categories, onTopicCreated }: Props) {
+export function HuggingfaceTab({ categories, onTopicCreated, isAdmin = false }: Props) {
   const [query, setQuery] = useState('');
   const [models, setModels] = useState<HFModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,13 +96,26 @@ export function HuggingfaceTab({ categories, onTopicCreated }: Props) {
         </div>
       )}
 
-      {trackModel && (
+      {trackModel && isAdmin && (
         <CreateTopicDialog
           open
           onClose={() => setTrackModel(null)}
           onCreated={(topic) => { onTopicCreated(topic); setTrackModel(null); }}
           categories={categories}
           lockSourceFields
+          initialValues={{
+            name: modelDisplayName(trackModel.id),
+            description: trackModel.pipeline_tag ?? '',
+            source_type: 'huggingface',
+            source_identifier: trackModel.id,
+          }}
+        />
+      )}
+      {trackModel && !isAdmin && (
+        <RequestTopicDialog
+          open
+          onClose={() => setTrackModel(null)}
+          categories={categories}
           initialValues={{
             name: modelDisplayName(trackModel.id),
             description: trackModel.pipeline_tag ?? '',

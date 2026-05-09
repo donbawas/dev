@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { RepoCard } from './repo-card';
 import { CreateTopicDialog } from '@/components/subscriptions/create-topic-dialog';
+import { RequestTopicDialog } from '@/components/admin/request-topic-dialog';
 import type { GithubRepo } from '@/app/api/github/search/route';
 import type { Category, Topic } from '@/lib/types';
 
@@ -25,9 +26,10 @@ interface Props {
   categories: Category[];
   onTopicCreated: (topic: Topic) => void;
   trackedIdentifiers?: Set<string>;
+  isAdmin?: boolean;
 }
 
-export function GithubTab({ categories, onTopicCreated, trackedIdentifiers = new Set() }: Props) {
+export function GithubTab({ categories, onTopicCreated, trackedIdentifiers = new Set(), isAdmin = false }: Props) {
   const [query, setQuery] = useState('');
   const [language, setLanguage] = useState('all');
   const [repos, setRepos] = useState<GithubRepo[]>([]);
@@ -106,13 +108,26 @@ export function GithubTab({ categories, onTopicCreated, trackedIdentifiers = new
         </div>
       )}
 
-      {trackRepo && (
+      {trackRepo && isAdmin && (
         <CreateTopicDialog
           open
           onClose={() => setTrackRepo(null)}
           onCreated={(topic) => { onTopicCreated(topic); setTrackRepo(null); }}
           categories={categories}
           lockSourceFields
+          initialValues={{
+            name: trackRepo.name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            description: trackRepo.description ?? '',
+            source_type: 'github',
+            source_identifier: trackRepo.full_name,
+          }}
+        />
+      )}
+      {trackRepo && !isAdmin && (
+        <RequestTopicDialog
+          open
+          onClose={() => setTrackRepo(null)}
+          categories={categories}
           initialValues={{
             name: trackRepo.name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
             description: trackRepo.description ?? '',

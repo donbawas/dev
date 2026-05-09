@@ -10,27 +10,38 @@ import { Loader2 } from 'lucide-react';
 import { SOURCE_TYPE_LABELS, SOURCE_TYPE_PLACEHOLDER } from '@/lib/types';
 import type { Category, SourceType } from '@/lib/types';
 
+interface InitialValues {
+  name?: string;
+  source_type?: SourceType;
+  source_identifier?: string;
+  description?: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   categories: Category[];
+  initialValues?: InitialValues;
 }
 
 const SOURCE_TYPES = Object.keys(SOURCE_TYPE_LABELS) as SourceType[];
 
-export function RequestTopicDialog({ open, onClose, categories }: Props) {
-  const [name, setName] = useState('');
-  const [sourceType, setSourceType] = useState<SourceType>('github');
-  const [sourceIdentifier, setSourceIdentifier] = useState('');
+export function RequestTopicDialog({ open, onClose, categories, initialValues }: Props) {
+  const [name, setName] = useState(initialValues?.name ?? '');
+  const [sourceType, setSourceType] = useState<SourceType>(initialValues?.source_type ?? 'github');
+  const [sourceIdentifier, setSourceIdentifier] = useState(initialValues?.source_identifier ?? '');
   const [categoryId, setCategoryId] = useState('');
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(initialValues?.description ?? '');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
 
   function reset() {
-    setName(''); setSourceType('github'); setSourceIdentifier('');
-    setCategoryId(''); setDescription(''); setDone(false); setError('');
+    setName(initialValues?.name ?? '');
+    setSourceType(initialValues?.source_type ?? 'github');
+    setSourceIdentifier(initialValues?.source_identifier ?? '');
+    setCategoryId(''); setDescription(initialValues?.description ?? '');
+    setDone(false); setError('');
   }
 
   async function handleSubmit() {

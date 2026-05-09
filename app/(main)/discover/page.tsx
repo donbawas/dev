@@ -12,14 +12,17 @@ export default function DiscoverPage() {
   const [categories, setCategories] = useState<CategoryWithTopics[]>([]);
   const [subscribedIds, setSubscribedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/categories').then((r) => r.json()),
       fetch('/api/subscriptions').then((r) => r.json()),
-    ]).then(([cats, subs]) => {
+      fetch('/api/user/plan').then((r) => r.json()),
+    ]).then(([cats, subs, user]) => {
       setCategories(cats);
       setSubscribedIds(subs);
+      setIsAdmin(user?.role === 'admin');
       setLoading(false);
     });
   }, []);
@@ -57,11 +60,11 @@ export default function DiscoverPage() {
         </TabsList>
 
         <TabsContent value="github" className="mt-4">
-          <GithubTab categories={flatCategories} onTopicCreated={handleTopicCreated} trackedIdentifiers={trackedIdentifiers} />
+          <GithubTab categories={flatCategories} onTopicCreated={handleTopicCreated} trackedIdentifiers={trackedIdentifiers} isAdmin={isAdmin} />
         </TabsContent>
 
         <TabsContent value="huggingface" className="mt-4">
-          <HuggingfaceTab categories={flatCategories} onTopicCreated={handleTopicCreated} />
+          <HuggingfaceTab categories={flatCategories} onTopicCreated={handleTopicCreated} isAdmin={isAdmin} />
         </TabsContent>
 
         <TabsContent value="browse" className="mt-4">
