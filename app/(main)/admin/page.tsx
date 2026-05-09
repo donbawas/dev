@@ -103,14 +103,6 @@ export default function AdminPage() {
     }
   }
 
-  if (loading || role !== 'admin') {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   const pending = requests.filter((r) => r.status === 'pending');
   const reviewed = requests.filter((r) => r.status !== 'pending');
 
@@ -130,6 +122,14 @@ export default function AdminPage() {
 
   const totalPages = Math.max(1, Math.ceil(filteredTopics.length / PAGE_SIZE));
   const pagedTopics = filteredTopics.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (loading || role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
