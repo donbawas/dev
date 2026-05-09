@@ -37,8 +37,8 @@ export function Header() {
               className={cn(
                 'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
                 pathname === href || pathname.startsWith(href + '/')
-                  ? 'font-medium text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-muted font-medium text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
               )}
             >
               {label}

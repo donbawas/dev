@@ -42,41 +42,48 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
     return NextResponse.json({ error: 'No supported package manifests found', detectedEcosystems: [] }, { status: 404 });
   }
 
-  // Upsert all dependencies
-  for (const dep of deps) {
-    await sql`
-      INSERT INTO project_dependencies (
-        project_id, name, current_version, latest_version,
-        package_manager, dep_type, status,
-        is_deprecated, vuln_count, vuln_severity, cve_ids,
-        days_behind, license, weekly_downloads, changelog_url,
-        last_checked_at
-      ) VALUES (
-        ${project.id}, ${dep.name},
-        ${dep.currentVersion || null}, ${dep.latestVersion || null},
-        ${dep.ecosystem}, ${dep.type}, ${dep.status},
-        ${dep.isDeprecated}, ${dep.vulnCount}, ${dep.vulnSeverity},
-        ${JSON.stringify(dep.cveIds)},
-        ${dep.daysBehind}, ${dep.license}, ${dep.weeklyDownloads},
-        ${dep.changelogUrl}, NOW()
-      )
-      ON CONFLICT (project_id, name, package_manager)
-      DO UPDATE SET
-        current_version  = EXCLUDED.current_version,
-        latest_version   = EXCLUDED.latest_version,
-        dep_type         = EXCLUDED.dep_type,
-        status           = EXCLUDED.status,
-        is_deprecated    = EXCLUDED.is_deprecated,
-        vuln_count       = EXCLUDED.vuln_count,
-        vuln_severity    = EXCLUDED.vuln_severity,
-        cve_ids          = EXCLUDED.cve_ids,
-        days_behind      = EXCLUDED.days_behind,
-        license          = EXCLUDED.license,
-        weekly_downloads = EXCLUDED.weekly_downloads,
-        changelog_url    = EXCLUDED.changelog_url,
-        last_checked_at  = NOW()
-    `;
-  }
+  // Batch upsert all dependencies in a single query
+  await sql`
+    INSERT INTO project_dependencies (
+      project_id, name, current_version, latest_version,
+      package_manager, dep_type, status,
+      is_deprecated, vuln_count, vuln_severity, cve_ids,
+      days_behind, license, weekly_downloads, changelog_url,
+      last_checked_at
+    )
+    SELECT
+      ${project.id},
+      unnest(${deps.map((d) => d.name)}::text[]),
+      unnest(${deps.map((d) => d.currentVersion || null)}::text[]),
+      unnest(${deps.map((d) => d.latestVersion || null)}::text[]),
+      unnest(${deps.map((d) => d.ecosystem)}::text[]),
+      unnest(${deps.map((d) => d.type)}::text[]),
+      unnest(${deps.map((d) => d.status)}::text[]),
+      unnest(${deps.map((d) => d.isDeprecated)}::boolean[]),
+      unnest(${deps.map((d) => d.vulnCount)}::int[]),
+      unnest(${deps.map((d) => d.vulnSeverity || null)}::text[]),
+      unnest(${deps.map((d) => JSON.stringify(d.cveIds))}::jsonb[]),
+      unnest(${deps.map((d) => d.daysBehind)}::int[]),
+      unnest(${deps.map((d) => d.license || null)}::text[]),
+      unnest(${deps.map((d) => d.weeklyDownloads || null)}::int[]),
+      unnest(${deps.map((d) => d.changelogUrl)}::text[]),
+      NOW()
+    ON CONFLICT (project_id, name, package_manager)
+    DO UPDATE SET
+      current_version  = EXCLUDED.current_version,
+      latest_version   = EXCLUDED.latest_version,
+      dep_type         = EXCLUDED.dep_type,
+      status           = EXCLUDED.status,
+      is_deprecated    = EXCLUDED.is_deprecated,
+      vuln_count       = EXCLUDED.vuln_count,
+      vuln_severity    = EXCLUDED.vuln_severity,
+      cve_ids          = EXCLUDED.cve_ids,
+      days_behind      = EXCLUDED.days_behind,
+      license          = EXCLUDED.license,
+      weekly_downloads = EXCLUDED.weekly_downloads,
+      changelog_url    = EXCLUDED.changelog_url,
+      last_checked_at  = NOW()
+  `;
 
   await sql`UPDATE projects SET last_scanned_at = NOW() WHERE id = ${project.id}`;
 

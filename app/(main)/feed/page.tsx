@@ -17,6 +17,7 @@ export interface FeedUpdate {
   topic_name: string;
   topic_verified: boolean;
   source_type: SourceType;
+  source_identifier: string;
   category_name: string;
 }
 
@@ -34,10 +35,11 @@ export default async function FeedPage() {
     sql`
       SELECT
         u.id, u.title, u.url, u.description, u.update_type, u.published_at,
-        t.name     AS topic_name,
-        t.verified AS topic_verified,
+        t.name             AS topic_name,
+        t.verified         AS topic_verified,
         t.source_type,
-        c.name     AS category_name
+        t.source_identifier,
+        c.name             AS category_name
       FROM updates u
       JOIN topics t ON t.id = u.topic_id
       JOIN categories c ON c.id = t.category_id

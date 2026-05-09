@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, ExternalLink, TrendingUp } from 'lucide-react';
+import { ArrowRight, ExternalLink, TrendingUp, Zap } from 'lucide-react';
 import { SignUpButton, Show } from '@clerk/nextjs';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
@@ -77,7 +77,8 @@ export default async function HomePage() {
     `,
   ]);
 
-  const [hero, ...rest] = updates as PublicUpdate[];
+  const allUpdates = updates as PublicUpdate[];
+  const [hero, ...rest] = allUpdates;
   const featured = rest.slice(0, 3);
   const grid = rest.slice(3);
 
@@ -86,6 +87,19 @@ export default async function HomePage() {
       <Header />
 
       <main className="flex flex-1 flex-col">
+        {/* ── Empty state ── */}
+        {allUpdates.length === 0 && (
+          <section className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-32 text-center">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-muted">
+              <TrendingUp className="size-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">No updates yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">Check back soon — the feed updates hourly.</p>
+            </div>
+          </section>
+        )}
+
         {/* ── Hero ── */}
         {hero && (
           <section className="border-b border-border px-6 py-8">
@@ -207,17 +221,20 @@ export default async function HomePage() {
 
         {/* ── CTA ── */}
         <Show when="signed-out">
-          <section className="border-t border-border bg-muted/30 px-6 py-14 text-center">
+          <section className="border-t border-border px-6 py-16 text-center">
             <div className="mx-auto max-w-lg">
-              <h2 className="mb-2 text-xl font-bold tracking-tight text-foreground">
-                Get your personalized feed
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-medium text-primary">
+                <Zap className="size-3" /> Free to get started
+              </div>
+              <h2 className="mb-2 text-2xl font-bold tracking-tight text-foreground">
+                Your personalized dev feed
               </h2>
-              <p className="mb-6 text-sm text-muted-foreground">
-                Subscribe to exactly the topics you care about — frameworks, AI models, languages — and see only what matters to you.
+              <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+                Subscribe to the frameworks, AI models, and tools you use. Get security alerts, release notes, and community updates in one place.
               </p>
               <SignUpButton mode="redirect">
                 <Button size="lg" className="gap-2">
-                  Start for free <ArrowRight className="size-4" />
+                  Get started free <ArrowRight className="size-4" />
                 </Button>
               </SignUpButton>
             </div>
@@ -235,9 +252,9 @@ function FeaturedCard({ update }: { update: PublicUpdate }) {
   const timeAgo = update.published_at ? formatDistanceToNow(new Date(update.published_at)) : null;
 
   return (
-    <Link href={`/feed/${update.id}`} className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:bg-muted/40">
+    <Link href={`/feed/${update.id}`} className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-border/80 hover:shadow-md">
       {/* Color bar + avatar */}
-      <div className={cn('relative flex h-28 items-end bg-gradient-to-br p-4', getGradient(update.category_name))}>
+      <div className={cn('relative flex h-24 items-end bg-gradient-to-br p-4', getGradient(update.category_name))}>
         {org && (
           <Image
             src={`https://avatars.githubusercontent.com/${org}`}
@@ -275,16 +292,16 @@ function GridCard({ update }: { update: PublicUpdate }) {
   return (
     <Link
       href={`/feed/${update.id}`}
-      className="group flex flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/40"
+      className="group flex flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-all hover:border-border/80 hover:bg-muted/50 hover:shadow-sm"
     >
       <div className="flex items-center gap-2">
         <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-semibold', UPDATE_TYPE_COLORS[update.update_type])}>
           {UPDATE_TYPE_LABELS[update.update_type]}
         </span>
         <span className="text-[10px] text-muted-foreground">{update.category_name}</span>
-        {timeAgo && <span className="ml-auto text-[10px] text-muted-foreground">{timeAgo}</span>}
+        {timeAgo && <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">{timeAgo}</span>}
       </div>
-      <p className="text-sm font-semibold leading-snug text-card-foreground line-clamp-2 group-hover:text-primary transition-colors">
+      <p className="line-clamp-2 text-sm font-semibold leading-snug text-card-foreground transition-colors group-hover:text-primary">
         {update.title}
       </p>
       <p className="text-[10px] text-muted-foreground">{update.topic_name} · {SOURCE_TYPE_LABELS[update.source_type]}</p>
