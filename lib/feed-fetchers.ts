@@ -1,5 +1,18 @@
 import type { UpdateType } from './types';
 
+function classifyReleaseType(tagName: string, title: string, body: string | null): UpdateType {
+  const text = `${tagName} ${title} ${body ?? ''}`.toLowerCase();
+
+  // Security advisories
+  if (/\bghsa-|\bcve-|\bsecurity\b|\bvulnerab|\badvisory\b/.test(text)) return 'security';
+
+  // Has a version number → release
+  if (/\d+\.\d+/.test(tagName)) return 'release';
+
+  // No version number → announcement
+  return 'announcement';
+}
+
 export interface FetchedUpdate {
   title: string;
   url: string | null;
@@ -55,7 +68,7 @@ export async function fetchGithubReleases(
       title: r.name?.trim() || r.tag_name,
       url: r.html_url,
       description: extractDescription(r.body ?? ''),
-      update_type: 'release' as UpdateType,
+      update_type: classifyReleaseType(r.tag_name, r.name ?? '', r.body),
       published_at: r.published_at,
     }));
 }
