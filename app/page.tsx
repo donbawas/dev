@@ -82,7 +82,7 @@ export default async function HomePage() {
   const grid = rest.slice(3);
 
   return (
-    <div className="flex min-h-full flex-col bg-background">
+    <div className="flex min-h-full flex-col">
       <Header />
 
       <main className="flex flex-1 flex-col">

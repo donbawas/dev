@@ -128,4 +128,15 @@
   html {
     @apply font-sans;
   }
+  .dark html {
+    background: oklch(0.09 0.022 258);
+  }
+  .dark body {
+    background:
+      radial-gradient(ellipse 100% 60% at 50% 35%, oklch(0.36 0.16 272) 0%, transparent 100%),
+      oklch(0.09 0.022 258);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    min-height: 100dvh;
+  }
 }

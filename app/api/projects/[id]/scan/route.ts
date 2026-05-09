@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { sql } from '@/lib/db';
-import { scanProject } from '@/lib/scanner';
+import { scanProject, scanFromContent } from '@/lib/scanner';
 
 export const runtime = 'nodejs';
 
@@ -19,18 +19,24 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   `;
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-  // Get GitHub token from Clerk OAuth
-  const client = await clerkClient();
-  const { data: tokens } = await client.users.getUserOauthAccessToken(clerkId, 'oauth_github');
-  const token = tokens[0]?.token;
-  if (!token) return NextResponse.json({ error: 'GitHub not connected', code: 'NO_GITHUB_TOKEN' }, { status: 400 });
+  let deps, detectedEcosystems;
 
-  // Run the scanner
-  const { deps, detectedEcosystems } = await scanProject(
-    project.github_repo,
-    project.default_branch ?? 'main',
-    token,
-  );
+  if (project.source_type === 'manual') {
+    if (!project.manifest_content) {
+      return NextResponse.json({ error: 'No manifest content stored' }, { status: 400 });
+    }
+    ({ deps, detectedEcosystems } = await scanFromContent(project.manifest_content));
+  } else {
+    const client = await clerkClient();
+    const { data: tokens } = await client.users.getUserOauthAccessToken(clerkId, 'oauth_github');
+    const token = tokens[0]?.token;
+    if (!token) return NextResponse.json({ error: 'GitHub not connected', code: 'NO_GITHUB_TOKEN' }, { status: 400 });
+    ({ deps, detectedEcosystems } = await scanProject(
+      project.github_repo,
+      project.default_branch ?? 'main',
+      token,
+    ));
+  }
 
   if (deps.length === 0) {
     return NextResponse.json({ error: 'No supported package manifests found', detectedEcosystems: [] }, { status: 404 });

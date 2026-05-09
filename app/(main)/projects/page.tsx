@@ -12,7 +12,8 @@ import { formatDistanceToNow } from '@/lib/date';
 interface Project {
   id: number;
   name: string;
-  github_repo: string;
+  github_repo: string | null;
+  source_type: string;
   default_branch: string;
   last_scanned_at: string | null;
   dep_count: number;
@@ -119,7 +120,9 @@ function ProjectCard({ project }: { project: Project }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{project.name}</p>
-          <p className="truncate text-[11px] text-muted-foreground">{project.github_repo}</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+          {project.github_repo ?? 'Manual manifest'}
+        </p>
         </div>
         <HealthBadge
           depCount={project.dep_count}
