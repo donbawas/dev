@@ -53,8 +53,8 @@ export async function GET(req: Request) {
         const existing = await sql`SELECT id FROM updates WHERE topic_id = ${topic.id} AND url = ${u.url} LIMIT 1`;
         if (existing.length > 0) continue;
         const rows = await sql`
-          INSERT INTO updates (topic_id, title, url, description, update_type, published_at)
-          VALUES (${topic.id}, ${u.title}, ${u.url}, ${u.description}, ${u.update_type}, ${u.published_at})
+          INSERT INTO updates (topic_id, title, url, description, update_type, published_at, reactions_count)
+          VALUES (${topic.id}, ${u.title}, ${u.url}, ${u.description}, ${u.update_type}, ${u.published_at}, ${u.reactions_count})
           RETURNING id
         `;
         inserted += rows.length;

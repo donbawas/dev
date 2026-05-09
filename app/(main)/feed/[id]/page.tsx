@@ -22,6 +22,7 @@ interface UpdateDetail {
   url: string | null;
   description: string | null;
   ai_summary: string | null;
+  reactions_count: number;
   update_type: UpdateType;
   published_at: string | null;
   topic_id: number;
@@ -81,7 +82,7 @@ export default async function UpdateDetailPage(props: PageProps<'/feed/[id]'>) {
 
   const [update] = (await sql`
     SELECT
-      u.id, u.title, u.url, u.description, u.ai_summary, u.update_type, u.published_at, u.topic_id,
+      u.id, u.title, u.url, u.description, u.ai_summary, u.reactions_count, u.update_type, u.published_at, u.topic_id,
       t.name             AS topic_name,
       t.verified         AS topic_verified,
       t.slug             AS topic_slug,
@@ -107,13 +108,37 @@ export default async function UpdateDetailPage(props: PageProps<'/feed/[id]'>) {
     }
   }
 
-  const related = (await sql`
-    SELECT id, title, update_type, published_at
-    FROM updates
-    WHERE topic_id = ${update.topic_id} AND id <> ${update.id}
-    ORDER BY COALESCE(published_at, created_at) DESC
-    LIMIT 4
-  `) as RelatedUpdate[];
+  const [relatedRaw, prevUpdate] = await Promise.all([
+    sql`
+      SELECT id, title, update_type, published_at
+      FROM updates
+      WHERE topic_id = ${update.topic_id} AND id <> ${update.id}
+      ORDER BY COALESCE(published_at, created_at) DESC
+      LIMIT 4
+    `,
+    sql`
+      SELECT url FROM updates
+      WHERE topic_id = ${update.topic_id}
+        AND id <> ${update.id}
+        AND COALESCE(published_at, created_at) < COALESCE(${update.published_at}, NOW())
+      ORDER BY COALESCE(published_at, created_at) DESC
+      LIMIT 1
+    `,
+  ]);
+  const related = relatedRaw as RelatedUpdate[];
+
+  // Build compare URL for GitHub releases: .../releases/tag/v1.2.0 → extract tag
+  function extractTag(url: string | null): string | null {
+    if (!url) return null;
+    const match = url.match(/\/releases\/tag\/(.+)$/);
+    return match?.[1] ?? null;
+  }
+
+  const currentTag = extractTag(update.url);
+  const prevTag = extractTag((prevUpdate[0] as { url: string } | undefined)?.url ?? null);
+  const compareUrl = currentTag && prevTag && update.source_type === 'github'
+    ? `https://github.com/${update.source_identifier}/compare/${prevTag}...${currentTag}`
+    : null;
 
   const org = getGithubOrg(update.source_type, update.source_identifier);
   const publishedDate = update.published_at
@@ -207,7 +232,7 @@ export default async function UpdateDetailPage(props: PageProps<'/feed/[id]'>) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {update.url && (
             <a href={update.url} target="_blank" rel="noopener noreferrer">
               <Button className="gap-2">
@@ -215,7 +240,20 @@ export default async function UpdateDetailPage(props: PageProps<'/feed/[id]'>) {
               </Button>
             </a>
           )}
+          {compareUrl && (
+            <a href={compareUrl} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" className="gap-2">
+                Compare changes <ExternalLink className="size-4" />
+              </Button>
+            </a>
+          )}
           {clerkId && <SaveButton updateId={update.id} initialSaved={isSaved} />}
+          {update.reactions_count > 0 && (
+            <span className="ml-auto flex items-center gap-1.5 text-sm text-muted-foreground">
+              🚀 <span className="tabular-nums font-medium">{update.reactions_count}</span>
+              <span className="text-xs">reactions on GitHub</span>
+            </span>
+          )}
         </div>
       </div>
 

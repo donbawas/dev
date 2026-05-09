@@ -19,6 +19,7 @@ export interface FetchedUpdate {
   description: string | null;
   update_type: UpdateType;
   published_at: string | null;
+  reactions_count: number;
 }
 
 // Strip markdown noise from release bodies, return first ~400 chars of readable text
@@ -60,6 +61,7 @@ export async function fetchGithubReleases(
   const releases = await res.json() as {
     name: string; tag_name: string; html_url: string;
     body: string | null; published_at: string | null; draft: boolean; prerelease: boolean;
+    reactions?: { total_count: number };
   }[];
 
   return releases
@@ -70,6 +72,7 @@ export async function fetchGithubReleases(
       description: extractDescription(r.body ?? ''),
       update_type: classifyReleaseType(r.tag_name, r.name ?? '', r.body),
       published_at: r.published_at,
+      reactions_count: r.reactions?.total_count ?? 0,
     }));
 }
 
@@ -95,6 +98,7 @@ export async function fetchNpmUpdates(packageName: string, firstScan = false): P
     description: data.versions?.[version]?.description ?? data.description ?? null,
     update_type: 'release' as UpdateType,
     published_at: new Date(time).toISOString(),
+    reactions_count: 0,
   }));
 }
 
@@ -120,6 +124,7 @@ export async function fetchPypiUpdates(packageName: string, firstScan = false): 
     description: data.info?.summary ?? null,
     update_type: 'release' as UpdateType,
     published_at: new Date(upload_time).toISOString(),
+    reactions_count: 0,
   }));
 }
 
@@ -173,6 +178,7 @@ export async function fetchRssUpdates(feedUrl: string): Promise<FetchedUpdate[]>
       description,
       update_type: 'article',
       published_at,
+      reactions_count: 0,
     });
   }
 
