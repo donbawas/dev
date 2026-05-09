@@ -19,13 +19,13 @@ const UPDATE_BORDER: Record<string, string> = {
   other:        'border-l-border',
 };
 
-const TYPE_FILTERS = [
-  { value: 'all',          label: 'All'           },
+const ALL_TYPE_FILTERS = [
   { value: 'release',      label: 'Releases'      },
   { value: 'security',     label: 'Security'      },
   { value: 'announcement', label: 'Announcements' },
-  { value: 'discussion',   label: 'Discussions'   },
   { value: 'article',      label: 'Articles'      },
+  { value: 'discussion',   label: 'Discussions'   },
+  { value: 'other',        label: 'Other'         },
 ];
 
 const LAST_VISIT_KEY = 'devpulse_last_feed_visit';
@@ -72,6 +72,9 @@ export function FeedClient({ updates, initialSavedIds }: Props) {
   }, {});
   const categories = Object.keys(byCategory).sort();
 
+  const presentTypes = new Set(updates.map((u) => u.update_type));
+  const activeTypeFilters = ALL_TYPE_FILTERS.filter((f) => presentTypes.has(f.value as never));
+
   const applyFilter = (list: FeedUpdate[]) =>
     typeFilter === 'all' ? list : list.filter((u) => u.update_type === typeFilter);
 
@@ -86,9 +89,20 @@ export function FeedClient({ updates, initialSavedIds }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Type filter pills */}
+      {/* Type filter pills — only show types that have results */}
       <div className="flex flex-wrap gap-1.5">
-        {TYPE_FILTERS.map((f) => (
+        <button
+          onClick={() => setTypeFilter('all')}
+          className={cn(
+            'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+            typeFilter === 'all'
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground',
+          )}
+        >
+          All
+        </button>
+        {activeTypeFilters.map((f) => (
           <button
             key={f.value}
             onClick={() => setTypeFilter(f.value)}
