@@ -12,6 +12,7 @@ export async function POST() {
       name        VARCHAR(255),
       avatar_url  TEXT,
       plan        VARCHAR(50) DEFAULT 'free',
+      role        VARCHAR(20) DEFAULT 'user',
       created_at  TIMESTAMPTZ DEFAULT NOW(),
       updated_at  TIMESTAMPTZ DEFAULT NOW()
     )

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, FolderPlus, Loader2 } from 'lucide-react';
+import { Plus, FolderPlus, MessageSquarePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TopicCard } from '@/components/subscriptions/topic-card';
 import { CreateCategoryDialog } from '@/components/subscriptions/create-category-dialog';
 import { CreateTopicDialog } from '@/components/subscriptions/create-topic-dialog';
+import { RequestTopicDialog } from '@/components/admin/request-topic-dialog';
 import type { CategoryWithTopics, Category, Topic } from '@/lib/types';
 
 interface Props {
@@ -19,8 +20,12 @@ export function BrowseTab({ initialCategories, initialSubscribedIds, onTopicCrea
   const [subscribedIds, setSubscribedIds] = useState<Set<number>>(new Set(initialSubscribedIds));
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [showNewTopic, setShowNewTopic] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  const allCategories: Category[] = categories.map(({ topics: _t, ...c }) => c);
+  useEffect(() => {
+    fetch('/api/user/plan').then((r) => r.json()).then((d) => setIsAdmin(d.role === 'admin')).catch(() => {});
+  }, []);
 
   async function handleToggle(topicId: number, wasSubscribed: boolean) {
     if (wasSubscribed) {
@@ -52,15 +57,25 @@ export function BrowseTab({ initialCategories, initialSubscribedIds, onTopicCrea
     notifyParent(topic);
   }
 
+  const allCategories: Category[] = categories.map(({ topics: _t, ...c }) => c);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowNewCategory(true)}>
-          <FolderPlus className="size-4" /> Category
-        </Button>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowNewTopic(true)}>
-          <Plus className="size-4" /> Topic
-        </Button>
+        {isAdmin ? (
+          <>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowNewCategory(true)}>
+              <FolderPlus className="size-4" /> Category
+            </Button>
+            <Button size="sm" className="gap-1.5" onClick={() => setShowNewTopic(true)}>
+              <Plus className="size-4" /> Topic
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowRequest(true)}>
+            <MessageSquarePlus className="size-4" /> Request a topic
+          </Button>
+        )}
       </div>
 
       {categories.map((cat) => (
@@ -95,6 +110,11 @@ export function BrowseTab({ initialCategories, initialSubscribedIds, onTopicCrea
         open={showNewTopic}
         onClose={() => setShowNewTopic(false)}
         onCreated={handleTopicCreated}
+        categories={allCategories}
+      />
+      <RequestTopicDialog
+        open={showRequest}
+        onClose={() => setShowRequest(false)}
         categories={allCategories}
       />
     </div>

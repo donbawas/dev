@@ -6,9 +6,9 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   const { userId: clerkId } = await auth();
-  if (!clerkId) return NextResponse.json({ plan: 'free' });
-  const [user] = await sql`SELECT plan FROM users WHERE clerk_id = ${clerkId}`;
-  return NextResponse.json({ plan: user?.plan ?? 'free' });
+  if (!clerkId) return NextResponse.json({ plan: 'free', role: 'user' });
+  const [user] = await sql`SELECT plan, role FROM users WHERE clerk_id = ${clerkId}`;
+  return NextResponse.json({ plan: user?.plan ?? 'free', role: user?.role ?? 'user' });
 }
 
 export async function PATCH(req: Request) {
