@@ -48,10 +48,11 @@ export async function GET(req: Request) {
 
       for (const u of updates) {
         if (!u.url) continue;
+        const existing = await sql`SELECT id FROM updates WHERE topic_id = ${topic.id} AND url = ${u.url} LIMIT 1`;
+        if (existing.length > 0) continue;
         const rows = await sql`
           INSERT INTO updates (topic_id, title, url, description, update_type, published_at)
           VALUES (${topic.id}, ${u.title}, ${u.url}, ${u.description}, ${u.update_type}, ${u.published_at})
-          ON CONFLICT (topic_id, url) WHERE url IS NOT NULL DO NOTHING
           RETURNING id
         `;
         inserted += rows.length;
