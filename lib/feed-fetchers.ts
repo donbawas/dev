@@ -33,12 +33,14 @@ function extractDescription(body: string): string | null {
 export async function fetchGithubReleases(
   repo: string,
   token?: string,
+  firstScan = false,
 ): Promise<FetchedUpdate[]> {
   const headers: Record<string, string> = { Accept: 'application/vnd.github+json' };
   if (token) headers.Authorization = `Bearer ${token}`;
 
+  const perPage = firstScan ? 20 : 5;
   const res = await fetch(
-    `https://api.github.com/repos/${repo}/releases?per_page=5`,
+    `https://api.github.com/repos/${repo}/releases?per_page=${perPage}`,
     { headers },
   );
   if (!res.ok) return [];
@@ -60,7 +62,7 @@ export async function fetchGithubReleases(
 
 // ── npm ──────────────────────────────────────────────────────────────────────
 
-export async function fetchNpmUpdates(packageName: string): Promise<FetchedUpdate[]> {
+export async function fetchNpmUpdates(packageName: string, firstScan = false): Promise<FetchedUpdate[]> {
   const res = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`);
   if (!res.ok) return [];
   const data = await res.json() as {
@@ -72,7 +74,7 @@ export async function fetchNpmUpdates(packageName: string): Promise<FetchedUpdat
   const times = Object.entries(data.time ?? {})
     .filter(([v]) => !['created', 'modified'].includes(v))
     .sort(([, a], [, b]) => new Date(b).getTime() - new Date(a).getTime())
-    .slice(0, 5);
+    .slice(0, firstScan ? 20 : 5);
 
   return times.map(([version, time]) => ({
     title: `${packageName} v${version}`,
@@ -85,7 +87,7 @@ export async function fetchNpmUpdates(packageName: string): Promise<FetchedUpdat
 
 // ── PyPI ─────────────────────────────────────────────────────────────────────
 
-export async function fetchPypiUpdates(packageName: string): Promise<FetchedUpdate[]> {
+export async function fetchPypiUpdates(packageName: string, firstScan = false): Promise<FetchedUpdate[]> {
   const res = await fetch(`https://pypi.org/pypi/${encodeURIComponent(packageName)}/json`);
   if (!res.ok) return [];
   const data = await res.json() as {
@@ -97,7 +99,7 @@ export async function fetchPypiUpdates(packageName: string): Promise<FetchedUpda
     .map(([version, files]) => ({ version, upload_time: files[0]?.upload_time }))
     .filter((r): r is { version: string; upload_time: string } => !!r.upload_time)
     .sort((a, b) => new Date(b.upload_time).getTime() - new Date(a.upload_time).getTime())
-    .slice(0, 5);
+    .slice(0, firstScan ? 20 : 5);
 
   return releases.map(({ version, upload_time }) => ({
     title: `${packageName} ${version}`,

@@ -28,15 +28,17 @@ export async function GET(req: Request) {
     try {
       let updates: FetchedUpdate[] = [];
 
+      const firstScan = !topic.last_fetched_at;
+
       switch (topic.source_type) {
         case 'github':
-          updates = await fetchGithubReleases(topic.source_identifier, githubToken);
+          updates = await fetchGithubReleases(topic.source_identifier, githubToken, firstScan);
           break;
         case 'npm':
-          updates = await fetchNpmUpdates(topic.source_identifier);
+          updates = await fetchNpmUpdates(topic.source_identifier, firstScan);
           break;
         case 'pypi':
-          updates = await fetchPypiUpdates(topic.source_identifier);
+          updates = await fetchPypiUpdates(topic.source_identifier, firstScan);
           break;
         case 'rss':
           updates = await fetchRssUpdates(topic.source_identifier);
