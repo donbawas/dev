@@ -24,9 +24,10 @@ function useDebounce<T>(value: T, delay: number): T {
 interface Props {
   categories: Category[];
   onTopicCreated: (topic: Topic) => void;
+  trackedIdentifiers?: Set<string>;
 }
 
-export function GithubTab({ categories, onTopicCreated }: Props) {
+export function GithubTab({ categories, onTopicCreated, trackedIdentifiers = new Set() }: Props) {
   const [query, setQuery] = useState('');
   const [language, setLanguage] = useState('all');
   const [repos, setRepos] = useState<GithubRepo[]>([]);
@@ -100,7 +101,7 @@ export function GithubTab({ categories, onTopicCreated }: Props) {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {repos.map((repo) => (
-            <RepoCard key={repo.id} repo={repo} onTrack={setTrackRepo} />
+            <RepoCard key={repo.id} repo={repo} onTrack={setTrackRepo} isTracked={trackedIdentifiers.has(repo.full_name)} />
           ))}
         </div>
       )}

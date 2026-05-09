@@ -25,6 +25,9 @@ export default function DiscoverPage() {
   }, []);
 
   const flatCategories: Category[] = categories.map(({ topics: _t, ...c }) => c);
+  const trackedIdentifiers = new Set(
+    categories.flatMap((c) => c.topics.map((t) => t.source_identifier))
+  );
 
   function handleTopicCreated(topic: Topic) {
     setCategories((prev) =>
@@ -54,7 +57,7 @@ export default function DiscoverPage() {
         </TabsList>
 
         <TabsContent value="github" className="mt-4">
-          <GithubTab categories={flatCategories} onTopicCreated={handleTopicCreated} />
+          <GithubTab categories={flatCategories} onTopicCreated={handleTopicCreated} trackedIdentifiers={trackedIdentifiers} />
         </TabsContent>
 
         <TabsContent value="huggingface" className="mt-4">

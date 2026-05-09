@@ -1,6 +1,6 @@
 'use client';
 
-import { Star, GitFork, ExternalLink } from 'lucide-react';
+import { Star, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from '@/lib/date';
 import type { GithubRepo } from '@/app/api/github/search/route';
@@ -8,6 +8,7 @@ import type { GithubRepo } from '@/app/api/github/search/route';
 interface Props {
   repo: GithubRepo;
   onTrack: (repo: GithubRepo) => void;
+  isTracked?: boolean;
 }
 
 function formatStars(n: number): string {
@@ -27,7 +28,7 @@ const LANGUAGE_COLORS: Record<string, string> = {
   Zig:        'bg-amber-500',
 };
 
-export function RepoCard({ repo, onTrack }: Props) {
+export function RepoCard({ repo, onTrack, isTracked = false }: Props) {
   const pushedAgo = formatDistanceToNow(new Date(repo.pushed_at));
   const dotColor = LANGUAGE_COLORS[repo.language ?? ''] ?? 'bg-muted-foreground';
 
@@ -81,9 +82,15 @@ export function RepoCard({ repo, onTrack }: Props) {
         </div>
       </div>
 
-      <Button size="sm" variant="outline" className="mt-auto w-full" onClick={() => onTrack(repo)}>
-        Track this
-      </Button>
+      {isTracked ? (
+        <Button size="sm" variant="outline" className="mt-auto w-full gap-1.5 text-primary" disabled>
+          <CheckCircle2 className="size-3.5" /> Tracking
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" className="mt-auto w-full" onClick={() => onTrack(repo)}>
+          Track this
+        </Button>
+      )}
     </div>
   );
 }
