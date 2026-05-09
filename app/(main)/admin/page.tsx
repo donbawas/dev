@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { redirect } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Clock, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckCircle2, XCircle, Clock, ShieldCheck, Eye, EyeOff, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SOURCE_TYPE_LABELS } from '@/lib/types';
 import { formatDistanceToNow } from '@/lib/date';
 import { cn } from '@/lib/utils';
+
+const PAGE_SIZE = 20;
 
 interface TopicRequest {
   id: number;
@@ -41,6 +43,11 @@ export default function AdminPage() {
   const [topics, setTopics] = useState<AdminTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  // Topics filters + pagination
+  const [verifiedFilter, setVerifiedFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetch('/api/user/plan')
@@ -107,6 +114,23 @@ export default function AdminPage() {
   const pending = requests.filter((r) => r.status === 'pending');
   const reviewed = requests.filter((r) => r.status !== 'pending');
 
+  const topicCategories = useMemo(() => {
+    const cats = new Set(topics.map((t) => t.category_name).filter(Boolean) as string[]);
+    return Array.from(cats).sort();
+  }, [topics]);
+
+  const filteredTopics = useMemo(() => {
+    return topics.filter((t) => {
+      if (verifiedFilter === 'verified' && !t.verified) return false;
+      if (verifiedFilter === 'unverified' && t.verified) return false;
+      if (categoryFilter !== 'all' && t.category_name !== categoryFilter) return false;
+      return true;
+    });
+  }, [topics, verifiedFilter, categoryFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTopics.length / PAGE_SIZE));
+  const pagedTopics = filteredTopics.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -168,45 +192,113 @@ export default function AdminPage() {
 
         {/* ── Topics tab ── */}
         <TabsContent value="topics" className="mt-4">
-          <div className="flex flex-col gap-2">
-            {topics.map((t) => (
-              <div
-                key={t.id}
-                className={cn(
-                  'flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors',
-                  !t.verified && 'opacity-60',
-                )}
-              >
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{t.name}</span>
-                    {t.verified && <CheckCircle2 className="size-3.5 text-primary" />}
-                    {t.category_name && (
-                      <span className="text-[10px] text-muted-foreground">{t.category_name}</span>
+          <div className="flex flex-col gap-4">
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Verified filter pills */}
+              <div className="flex gap-1">
+                {(['all', 'verified', 'unverified'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => { setVerifiedFilter(v); setPage(1); }}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors',
+                      verifiedFilter === v
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground',
                     )}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category select */}
+              <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1); }}>
+                <SelectTrigger className="h-7 w-44 text-xs">
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {topicCategories.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <span className="ml-auto text-xs text-muted-foreground">
+                {filteredTopics.length} topic{filteredTopics.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* List */}
+            {pagedTopics.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No topics match these filters.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {pagedTopics.map((t) => (
+                  <div
+                    key={t.id}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors',
+                      !t.verified && 'opacity-60',
+                    )}
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">{t.name}</span>
+                        {t.verified && <CheckCircle2 className="size-3.5 text-primary" />}
+                        {t.category_name && (
+                          <span className="text-[10px] text-muted-foreground">{t.category_name}</span>
+                        )}
+                      </div>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {SOURCE_TYPE_LABELS[t.source_type as keyof typeof SOURCE_TYPE_LABELS]} · {t.source_identifier}
+                        {t.subscriber_count > 0 && ` · ${t.subscriber_count} subscribers`}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={t.verified ? 'outline' : 'default'}
+                      className="shrink-0 gap-1.5"
+                      disabled={actionLoading === t.id}
+                      onClick={() => handleVerify(t.id, !t.verified)}
+                    >
+                      {actionLoading === t.id ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : t.verified ? (
+                        <><EyeOff className="size-3.5" /> Unverify</>
+                      ) : (
+                        <><Eye className="size-3.5" /> Verify</>
+                      )}
+                    </Button>
                   </div>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {SOURCE_TYPE_LABELS[t.source_type as keyof typeof SOURCE_TYPE_LABELS]} · {t.source_identifier}
-                    {t.subscriber_count > 0 && ` · ${t.subscriber_count} subscribers`}
-                  </span>
-                </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2">
                 <Button
-                  size="sm"
-                  variant={t.verified ? 'outline' : 'default'}
-                  className="shrink-0 gap-1.5"
-                  disabled={actionLoading === t.id}
-                  onClick={() => handleVerify(t.id, !t.verified)}
+                  variant="outline" size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
                 >
-                  {actionLoading === t.id ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : t.verified ? (
-                    <><EyeOff className="size-3.5" /> Unverify</>
-                  ) : (
-                    <><Eye className="size-3.5" /> Verify</>
-                  )}
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline" size="sm"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight className="size-4" />
                 </Button>
               </div>
-            ))}
+            )}
           </div>
         </TabsContent>
       </Tabs>
